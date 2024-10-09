@@ -1,0 +1,2 @@
+ngsolve
+numpy
