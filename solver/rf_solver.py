@@ -20,7 +20,6 @@ class SolverRF:
         self.__assign_materials()
         self.load_type = 1
 
-
     def __assign_materials(self):
 
         self.mur = self.mesh.MaterialCF({mat: val.get("mur", 1) for mat, val in self.domains.items()}, default=1)
@@ -50,6 +49,7 @@ class SolverRF:
         # outer boundary Sommerfeld radiation condition
         self.matrix += 1j * self.k0 * u.Trace() * v.Trace() * ngsolve.ds(self.outer)
 
+        # on feed line
         self.load_vector +=1j * self.k0 * self.Z0 * tangent * 1.0 * v.Trace().Trace() * dline(self.feed_line)
 
         self.matrix.Assemble()
@@ -75,10 +75,11 @@ class SolverRF:
         s11 = 20 * math.log10(abs(gamma))
         print("S11", s11)
         print ("voltage:", voltage)
-        vtk = ngsolve.VTKOutput(self.mesh,coefs=[efield.real, efield.imag],
-                names=["efieldre", "efieldim"],
-                filename="D:/test/vtk_e_field", legacy=True,
-                subdivision = 0)
-        vtk.Do()
+        # uncomment to print out the electric field
+        # vtk = ngsolve.VTKOutput(self.mesh,coefs=[efield.real, efield.imag],
+        #         names=["efieldre", "efieldim"],
+        #         filename="D:/test/vtk_e_field", legacy=True,
+        #         subdivision = 0)
+        # vtk.Do()
     
     
