@@ -2,6 +2,8 @@ from netgen.occ import MoveTo, Box, Glue, OCCGeometry, X, Y, Z
 # Not sure why but it seems that the import of netgen.gui is necessary for the GUI to start
 import netgen.gui # pylint: disable=unused-import
 import ngsolve
+import matplotlib.pyplot as plt
+import numpy as np
 from rf_solver import SolverRF
 
 def create_geometry():
@@ -86,22 +88,34 @@ def create_geometry():
 
 if __name__ == "__main__":
     geom = create_geometry()
-    ngmesh = geom.GenerateMesh(maxh=0.003, segmentsperedge=0)
+    ngmesh = geom.GenerateMesh(maxh=0.03, segmentsperedge=0)
     mesh = ngsolve.Mesh(ngmesh)
     #ngsolve.Draw(mesh)
 
 
     properties = {}
-    properties["frequency"] = 2.4e9
-
     domains = {"dielectric": {"type": "dielectric", "epsilon": 2.2}}
     boundaries = {"air_outer": {"type": "outer"}, "ground": {"type": "pec"}, "patch": {"type": "pec"}}
     lumped_elements = {"loading_pin": {"type": "feed"}}
 
-    print(lumped_elements)
-    solver = SolverRF(mesh, domains, boundaries, lumped_elements, properties)
-    solver.assemble()
-    solver.solve()
-    solver.finalize()
+
+    frequencies = np.arange(2.1e9, 2.85e9, 0.05e9)
+    # reference s11 calculated for np.arange(2.1e9, 2.85e9, 0.05e9) frequencies with cenos
+    # calculation was done for approx 600 k DOF's (70 k elements with second order finite element space)
+    reference_s11 = [  -0.172449,-0.247049, -0.384477, -0.682518, -1.52705, -5.43741,
+                        -10.83041,-2.13574, -0.801105, -0.408482, -0.248971, -0.171112,
+                        -0.128651, -0.103881, -0.088895]
+    s_params = []
+    for freq in frequencies:
+        properties["frequency"] = freq
+        solver = SolverRF(mesh, domains, boundaries, lumped_elements, properties)
+        solver.assemble()
+        solver.solve()
+        s_params.append(solver.finalize())
+    
+
+    plt.plot(frequencies, s_params)
+    plt.plot(frequencies, reference_s11)
+    plt.show()
     #ngsolve.Draw(mesh)
     #input()

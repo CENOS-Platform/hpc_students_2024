@@ -28,7 +28,7 @@ class SolverRF:
         self.epsilonr = self.mesh.MaterialCF({mat: val.get("epsilon", 1) for mat, val in self.domains.items()}, default=1)
         epsilon0 = 8.854188e-12
 
-        self.k0 = self.omega * ngsolve.sqrt(self.epsilonr * epsilon0 * self.mur * mu0)
+        self.k0 = self.omega * ngsolve.sqrt(epsilon0 * mu0)
         self.Z0 = ngsolve.sqrt(mu0/epsilon0)
 
 
@@ -50,7 +50,7 @@ class SolverRF:
         self.matrix += 1j * self.k0 * u.Trace() * v.Trace() * ngsolve.ds(self.outer)
 
         # on feed line
-        self.load_vector +=1j * self.k0 * self.Z0 * tangent * 1.0 * v.Trace().Trace() * dline(self.feed_line)
+        self.load_vector +=1j * self.k0 * self.Z0 * tangent * 1.0/50 * v.Trace().Trace() * dline(self.feed_line)
 
         self.matrix.Assemble()
         self.load_vector.Assemble()
@@ -60,7 +60,6 @@ class SolverRF:
         start = time.perf_counter()
 
         print("SOLVE DOFS", self.fes.ndof)
-        ngsolve.SetNumThreads(5)
         with ngsolve.TaskManager():
             inv = self.matrix.mat.Inverse(self.fes.FreeDofs(), inverse="pardiso")
             self.electric_field.vec.data = inv * self.load_vector.vec
@@ -81,5 +80,6 @@ class SolverRF:
         #         filename="D:/test/vtk_e_field", legacy=True,
         #         subdivision = 0)
         # vtk.Do()
+        return s11
     
     

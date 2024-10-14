@@ -1,2 +1,3 @@
 ngsolve
 numpy
+matplotlib
