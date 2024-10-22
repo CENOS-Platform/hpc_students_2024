@@ -19,6 +19,7 @@ class SolverRF:
         self.feed_line = self.mesh.BBoundaries("|".join([name for name, val in self.lumped_elements.items() if val["type"] == "feed"]))
         self.__assign_materials()
         self.load_type = 1
+        self.s11 = None
 
     def __assign_materials(self):
 
@@ -37,7 +38,7 @@ class SolverRF:
         u = self.fes.TrialFunction()
         v = self.fes.TestFunction()
 
-        self.matrix = ngsolve.BilinearForm(self.fes)
+        self.matrix = ngsolve.BilinearForm(self.fes, symmetric=True, symmetric_storage=True)
         dline = ngsolve.comp.DifferentialSymbol(ngsolve.BBND)
         self.load_vector = ngsolve.LinearForm(self.fes, autoupdate=True)
         tangent  = ngsolve.specialcf.tangential(self.mesh.dim)
@@ -71,8 +72,8 @@ class SolverRF:
         efield = self.electric_field
         voltage = ngsolve.Integrate( efield * ngsolve.specialcf.tangential(self.mesh.dim) , self.feed_line, ngsolve.BBND)
         gamma = ((voltage - 1) / (voltage + 1))
-        s11 = 20 * math.log10(abs(gamma))
-        print("S11", s11)
+        self.s11 = 20 * math.log10(abs(gamma))
+        print("S11", self.s11)
         print ("voltage:", voltage)
         # uncomment to print out the electric field
         # vtk = ngsolve.VTKOutput(self.mesh,coefs=[efield.real, efield.imag],
@@ -80,6 +81,5 @@ class SolverRF:
         #         filename="D:/test/vtk_e_field", legacy=True,
         #         subdivision = 0)
         # vtk.Do()
-        return s11
     
     
