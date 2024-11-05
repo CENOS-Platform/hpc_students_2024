@@ -139,18 +139,32 @@ if __name__ == "__main__":
     # now let's use the function in the calculate method
     patch_antenna_case.calculate()
     s_params_1 = patch_antenna_case.s_params
+    residuals_1 = np.array(s_params_1) - np.array(patch_antenna_case.reference_s11)
+    norm_residuals_1 = np.linalg.norm(residuals_1)
+    print("Residuals after first calculation: ", norm_residuals_1)
     patch_antenna_case.refine_mesh()
+
 
     patch_antenna_case.calculate()
     s_params_2 = patch_antenna_case.s_params
+    residuals_2 = np.array(s_params_2) - np.array(patch_antenna_case.reference_s11)
+    norm_residuals_2 = np.linalg.norm(residuals_2)
+    print("Residuals after second calculation: ", norm_residuals_2)
     patch_antenna_case.refine_mesh()
 
     patch_antenna_case.calculate()
     s_params_3 = patch_antenna_case.s_params
+    residuals_3 = np.array(s_params_3) - np.array(patch_antenna_case.reference_s11)
+    norm_residuals_3 = np.linalg.norm(residuals_3)
+    print("Residuals after third calculation: ", norm_residuals_3)
     patch_antenna_case.refine_mesh()
 
     patch_antenna_case.calculate()
     s_params_4 = patch_antenna_case.s_params
+    residuals_4 = np.array(s_params_4) - np.array(patch_antenna_case.reference_s11)
+    norm_residuals_4 = np.linalg.norm(residuals_4)
+    print("Residuals after fourth calculation: ", norm_residuals_4)
+
 
     # the calculation time quickly explodes from sub-second for each frequency to at the beginning
     # to more than 120 seconds per frequency after last refinement. This may different significantly on different PCs.
