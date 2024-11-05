@@ -107,6 +107,10 @@ class PatchAntennaCase:
         return mesh
     
     def calculate(self, refinement_function = None):
+        # reset refinement
+        for el in self.mesh.Elements(ngsolve.VOL):
+            self.mesh.SetRefinementFlag(el, False)
+
         self.s_params = []
         for freq in self.frequencies:
             solver = SolverRF(self.mesh, self.domains, self.boundaries, self.lumped_elements, {"frequency": freq})
@@ -122,6 +126,7 @@ class PatchAntennaCase:
         self.mesh.Refine()
 
 if __name__ == "__main__":
+    # create instance of patch antenna case
     patch_antenna_case = PatchAntennaCase()
     #ngsolve.Draw(patch_antenna_case.mesh)
 
@@ -129,52 +134,34 @@ if __name__ == "__main__":
     def refinement_func(mesh, electric_field):
         """Simple function defined to refine elements with high electric field"""
         solver_fes = electric_field.space
-        max_dof = np.max(solver.electric_field.vec)
+        max_dof = np.max(electric_field.vec)
         for el in mesh.Elements(ngsolve.VOL):
             for edge in el.edges:
                 for dof in solver_fes.GetDofNrs(edge):
-                    if electric_field.vec[dof] > 0.5 * max_dof:
+                    if electric_field.vec[dof] > 0.8 * max_dof:
                         mesh.SetRefinementFlag(el, True)
 
     # now let's use the function in the calculate method
-    patch_antenna_case.calculate()
-    s_params_1 = patch_antenna_case.s_params
-    residuals_1 = np.array(s_params_1) - np.array(patch_antenna_case.reference_s11)
-    norm_residuals_1 = np.linalg.norm(residuals_1)
-    print("Residuals after first calculation: ", norm_residuals_1)
-    patch_antenna_case.refine_mesh()
+    num_iterations = 6
+    s_params_list = []
+    norm_residuals_list = []
 
+    # here we loop over iterations and refine mesh each time.
+    # we also pass our refinement function to calculate method to set refinement flags for mesh elements
+    for i in range(num_iterations):
+        patch_antenna_case.calculate(refinement_func)
+        s_params = patch_antenna_case.s_params
+        s_params_list.append(s_params)
+        residuals = np.array(s_params) - np.array(patch_antenna_case.reference_s11)
+        norm_residuals = np.linalg.norm(residuals)
+        norm_residuals_list.append(norm_residuals)
+        print(f"Residuals after calculation {i + 1}: ", norm_residuals)
+        patch_antenna_case.refine_mesh()
 
-    patch_antenna_case.calculate()
-    s_params_2 = patch_antenna_case.s_params
-    residuals_2 = np.array(s_params_2) - np.array(patch_antenna_case.reference_s11)
-    norm_residuals_2 = np.linalg.norm(residuals_2)
-    print("Residuals after second calculation: ", norm_residuals_2)
-    patch_antenna_case.refine_mesh()
-
-    patch_antenna_case.calculate()
-    s_params_3 = patch_antenna_case.s_params
-    residuals_3 = np.array(s_params_3) - np.array(patch_antenna_case.reference_s11)
-    norm_residuals_3 = np.linalg.norm(residuals_3)
-    print("Residuals after third calculation: ", norm_residuals_3)
-    patch_antenna_case.refine_mesh()
-
-    patch_antenna_case.calculate()
-    s_params_4 = patch_antenna_case.s_params
-    residuals_4 = np.array(s_params_4) - np.array(patch_antenna_case.reference_s11)
-    norm_residuals_4 = np.linalg.norm(residuals_4)
-    print("Residuals after fourth calculation: ", norm_residuals_4)
-
-
-    # the calculation time quickly explodes from sub-second for each frequency to at the beginning
-    # to more than 120 seconds per frequency after last refinement. This may different significantly on different PCs.
-    # It is clear that this method does not scale well
-    # and further refinement is not possible. We need to find a better way to mark mesh elements for refinement
-
+    # Plotting the results
     plt.figure()
-    plt.plot(patch_antenna_case.frequencies, s_params_1)
-    plt.plot(patch_antenna_case.frequencies, s_params_2)
-    plt.plot(patch_antenna_case.frequencies, s_params_3)
-    plt.plot(patch_antenna_case.frequencies, s_params_4)
-    plt.plot(patch_antenna_case.frequencies, patch_antenna_case.reference_s11, linewidth=2.5)
+    for i, s_params in enumerate(s_params_list):
+        plt.plot(patch_antenna_case.frequencies, s_params, label=f"Iteration {i}")
+    plt.plot(patch_antenna_case.frequencies, patch_antenna_case.reference_s11, linewidth=2.5, label="Reference")
+    plt.legend()
     plt.show()

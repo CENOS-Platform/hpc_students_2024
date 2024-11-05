@@ -20,3 +20,11 @@ VS Code should now recommend this venv as python environment, if you open projec
 ## Solver
 
 Solver usage is shown in patch_antenna.py file. Just run it in python and see what happens! :)
+
+Just running the existing file will plot the following:
+
+![1730817804250](image/Readme/1730817804250.png)
+
+Here we see that values get closer to reference with each iteration, but they are still very far. And the number of DOFs is already pretty high. The method chosen here to refine mesh is bad (obviously, we just put mesh refinement based on max value of electric field).
+
+So we need to find a proper function to mark elements which we need to refine. And it is your task to do it! :)
