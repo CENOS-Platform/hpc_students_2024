@@ -1,6 +1,7 @@
 import math
 import ngsolve
 import time
+import numpy as np
 
 class SolverRF:
     def __init__(self, mesh, domains, boundaries, lumped_elements, properties):
@@ -20,21 +21,24 @@ class SolverRF:
         self.__assign_materials()
         self.load_type = 1
         self.s11 = None
+        self.order = 1
 
     def __assign_materials(self):
 
         self.mur = self.mesh.MaterialCF({mat: val.get("mur", 1) for mat, val in self.domains.items()}, default=1)
         mu0 = 1.257e-6
+        self.mu = self.mur * mu0
         
         self.epsilonr = self.mesh.MaterialCF({mat: val.get("epsilon", 1) for mat, val in self.domains.items()}, default=1)
         epsilon0 = 8.854188e-12
+        self.epsilon = self.epsilonr * epsilon0
 
         self.k0 = self.omega * ngsolve.sqrt(epsilon0 * mu0)
         self.Z0 = ngsolve.sqrt(mu0/epsilon0)
 
 
     def assemble(self):
-        self.fes = ngsolve.HCurl(self.mesh, order = 1, dirichlet = self.pec_boundaries, complex=True, autoupdate=True)
+        self.fes = ngsolve.HCurl(self.mesh, order = self.order, dirichlet = self.pec_boundaries, complex=True, autoupdate=True)
         u = self.fes.TrialFunction()
         v = self.fes.TestFunction()
 
@@ -44,18 +48,40 @@ class SolverRF:
         tangent  = ngsolve.specialcf.tangential(self.mesh.dim)
         
         # on all domains
-        self.matrix += 1/self.mur * ngsolve.curl(u) * ngsolve.curl(v) * ngsolve.dx
-        self.matrix += - self.k0**2 * self.epsilonr * u * v * ngsolve.dx
+        self.matrix += 1/self.mu * ngsolve.curl(u) * ngsolve.curl(v) * ngsolve.dx
+        self.matrix += - self.omega**2 * self.epsilon * u * v * ngsolve.dx
 
         # outer boundary Sommerfeld radiation condition
-        self.matrix += 1j * self.k0 * u.Trace() * v.Trace() * ngsolve.ds(self.outer)
+        self.matrix += 1j * self.omega  / self.Z0 * u.Trace() * v.Trace() * ngsolve.ds(self.outer)
 
         # on feed line
-        self.load_vector +=1j * self.k0 * self.Z0 * tangent * 1.0/50 * v.Trace().Trace() * dline(self.feed_line)
+        self.load_vector +=1j * self.omega * tangent * 1.0/50 * v.Trace().Trace() * dline(self.feed_line)
 
         self.matrix.Assemble()
         self.load_vector.Assemble()
         self.electric_field = ngsolve.GridFunction(self.fes, autoupdate=True)
+
+    def estimate_error(self):
+        """
+        Estimator from paper https://doi.org/10.1016/j.cma.2015.08.002
+        """
+        magnetic_field = ngsolve.curl(self.electric_field)
+        # sigma and beta are terms defined in the paper
+        sigma = 1/self.mu * magnetic_field
+        beta = (1j * self.omega *self.epsilon) * self.omega
+        tau = beta * self.electric_field/self.omega
+        hdiv = ngsolve.HDiv(self.mesh, order=self.order+1, complex=True)
+        hcurl = ngsolve.HCurl(self.mesh, order=self.order+1, complex=True)
+        gfflux = ngsolve.GridFunction(hcurl)
+        gfflux.Set(sigma)
+        gfflux2 = ngsolve.GridFunction(hdiv)
+        gfflux2.Set(tau)
+        err1 = ngsolve.Integrate((self.mu*ngsolve.Conj(gfflux-sigma)*(gfflux-sigma)).real,
+                             self.mesh, element_wise=True).NumPy()
+        err2 = ngsolve.Integrate((ngsolve.Conj(1/ngsolve.sqrt(beta) * gfflux2-tau)*(1/ngsolve.sqrt(beta) * gfflux2-tau)).real,
+                             self.mesh, element_wise=True).NumPy()
+        err = err1 + err2
+        return np.array(err)
 
     def solve(self):
         start = time.perf_counter()

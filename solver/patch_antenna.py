@@ -120,7 +120,7 @@ class PatchAntennaCase:
             self.s_params.append(solver.s11)
             # we set refinement flags for next call to refine after each frequency
             if refinement_function is not None:
-                refinement_function(self.mesh, solver.electric_field)
+                refinement_function(self.mesh, solver)
     
     def refine_mesh(self):
         self.mesh.Refine()
@@ -131,15 +131,23 @@ if __name__ == "__main__":
     #ngsolve.Draw(patch_antenna_case.mesh)
 
     # example - simple function for refinement. This is what we want to make good!
-    def refinement_func(mesh, electric_field):
+    def refinement_func(mesh, solver):
         """Simple function defined to refine elements with high electric field"""
-        solver_fes = electric_field.space
-        max_dof = np.max(electric_field.vec)
+        solver_fes = solver.electric_field.space
+        max_dof = np.max(solver.electric_field.vec)
         for el in mesh.Elements(ngsolve.VOL):
             for edge in el.edges:
                 for dof in solver_fes.GetDofNrs(edge):
-                    if electric_field.vec[dof] > 0.8 * max_dof:
+                    if solver.electric_field.vec[dof] > 0.8 * max_dof:
                         mesh.SetRefinementFlag(el, True)
+    
+    def refinement_function2(mesh, solver):
+        errors = solver.estimate_error()
+        max_error = np.max(errors)
+        for idx, el in enumerate(mesh.Elements(ngsolve.VOL)):
+            if errors[idx] > 0.8 * max_error:
+                mesh.SetRefinementFlag(el, True)
+
 
     # now let's use the function in the calculate method
     num_iterations = 6
@@ -149,7 +157,7 @@ if __name__ == "__main__":
     # here we loop over iterations and refine mesh each time.
     # we also pass our refinement function to calculate method to set refinement flags for mesh elements
     for i in range(num_iterations):
-        patch_antenna_case.calculate(refinement_func)
+        patch_antenna_case.calculate(refinement_function2)
         s_params = patch_antenna_case.s_params
         s_params_list.append(s_params)
         residuals = np.array(s_params) - np.array(patch_antenna_case.reference_s11)
