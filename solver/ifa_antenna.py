@@ -38,6 +38,7 @@ class IfaAntennaCase:
     def create_geometry(self):
         cm = 1e-2
         mm = 1e-3
+        um = 1e-6
 
         box_y = 32 * mm
         box_x = 45 * mm
@@ -53,9 +54,8 @@ class IfaAntennaCase:
         line_width = 1 * mm
         substrate_height = 1.6 * mm
 
-        air_l = 10 * cm
-        air_w = 10 * cm
-        air_h = 4 * cm
+        air_delta = 36 * mm
+        copper_thickness = 35 * um
 
         antenna_part = (
             MoveTo(ground_x, start_y)
@@ -80,7 +80,10 @@ class IfaAntennaCase:
             .Face()
             .Move((0, 0, substrate_height))
         )
+        antenna_part = antenna_part.Extrude(copper_thickness)
+
         ground_copper = MoveTo(0,0).Rectangle(ground_x, box_y).Face().Move((0, 0, substrate_height))
+        ground_copper = ground_copper.Extrude(copper_thickness)
 
         dielectric = MoveTo(0,0).Rectangle(box_x, box_y).Face().Extrude(substrate_height)
 
@@ -88,8 +91,8 @@ class IfaAntennaCase:
         pins.edges.Min(Y).name = "loading_pin"
 
         air_box = Box(
-            (-air_w / 2 + box_x / 2, -air_l / 2 + box_y / 2, -air_h / 2),
-            (air_w / 2 + box_x / 2, air_l / 2 + box_y / 2, air_h / 2),
+            (-air_delta, -air_delta, -air_delta),
+            (air_delta + box_x, air_delta + box_y, air_delta + substrate_height),
         )
         air_box.faces.name = "air_outer"
         air_box = air_box - dielectric
@@ -109,8 +112,7 @@ class IfaAntennaCase:
         return geom
 
     def generate_mesh(self):
-        # when put maxh = 0.03, we get very far from reference results
-        ngmesh = self.geom.GenerateMesh(maxh=0.005, segmentsperedge=0)
+        ngmesh = self.geom.GenerateMesh(maxh=0.01, segmentsperedge=0)
         mesh = ngsolve.Mesh(ngmesh)
         ngsolve.Draw(mesh)
         return mesh
@@ -158,7 +160,7 @@ if __name__ == "__main__":
 
 
     # now let's use the function in the calculate method
-    num_iterations = 10
+    num_iterations = 6
     s_params_list = []
     norm_residuals_list = []
 
