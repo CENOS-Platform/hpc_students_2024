@@ -4,7 +4,7 @@ import time
 import numpy as np
 
 class SolverRF:
-    def __init__(self, mesh, domains, boundaries, lumped_elements, properties):
+    def __init__(self, mesh, domains, boundaries, lumped_elements, properties, order=1):
         self.mesh = mesh
         self.domains = domains
         self.boundaries = boundaries
@@ -21,7 +21,7 @@ class SolverRF:
         self.__assign_materials()
         self.load_type = 1
         self.s11 = None
-        self.order = 1
+        self.order = order
 
     def __assign_materials(self):
 

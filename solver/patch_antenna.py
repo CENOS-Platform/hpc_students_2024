@@ -5,6 +5,14 @@ import ngsolve
 import matplotlib.pyplot as plt
 import numpy as np
 from rf_solver import SolverRF
+import sys
+import os
+# Add parent directory to path to find gnn module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from gnn.model import RefineGNN
+import torch
+from torch_geometric.data import Data
+from utils import build_graph
 
 class PatchAntennaCase:
     def __init__(self):
@@ -148,16 +156,58 @@ if __name__ == "__main__":
             if errors[idx] > 0.8 * max_error:
                 mesh.SetRefinementFlag(el, True)
 
+    def load_refine_model(model_path: str,
+                        in_dim: int,
+                        hidden: int = 128,
+                        num_layers: int = 4,
+                        edge_dim: int = 6,
+                        device: str = "cpu") -> RefineGNN:
+        """
+        Instantiate the GNN with the same hyperparameters you trained with,
+        load its state_dict, and return it in evaluation mode on the target device.
+        """
+        # 1) Create model with identical architecture/hyperparams
+        model = RefineGNN(in_dim=in_dim,
+                        hidden=hidden,
+                        num_layers=num_layers,
+                        edge_dim=edge_dim)
+        # 2) Load weights (map to CPU or GPU as needed)
+        ckpt = torch.load(model_path, map_location=device)
+        model.load_state_dict(ckpt)
+        # 3) Switch to eval mode & move to device
+        model.eval()
+        model.to(device)
+        return model
+
+    def refine_with_gnn(mesh, solver):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        sample_x_dim   = 11    # e.g. 3(xyz)+1(mat)+1(est)+3(E features)+1(h)+1(κ) = 10
+        sample_edge_dim= 6     # the number of columns in your edge_attr array
+
+        model = load_refine_model("gnn_refine_epoch011.pth",
+                                in_dim=sample_x_dim,
+                                hidden=128,
+                                num_layers=4,
+                                edge_dim=sample_edge_dim,
+                                device=device)
+        data = build_graph(mesh, solver).to(device)
+        with torch.no_grad():
+            logits = model(data.x, data.edge_index, data.edge_attr)
+            prob   = torch.sigmoid(logits).cpu().numpy()
+
+        # loop over NGSolve elements in the same order as build_graph()
+        for el, p in zip(mesh.Elements(ngsolve.VOL), prob):
+            if p > 0.5:
+                mesh.SetRefinementFlag(el, True)
 
     # now let's use the function in the calculate method
-    num_iterations = 6
+    num_iterations = 3
     s_params_list = []
     norm_residuals_list = []
-
     # here we loop over iterations and refine mesh each time.
     # we also pass our refinement function to calculate method to set refinement flags for mesh elements
     for i in range(num_iterations):
-        patch_antenna_case.calculate(refinement_function2)
+        patch_antenna_case.calculate(refine_with_gnn)
         s_params = patch_antenna_case.s_params
         s_params_list.append(s_params)
         residuals = np.array(s_params) - np.array(patch_antenna_case.reference_s11)
