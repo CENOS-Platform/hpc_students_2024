@@ -13,7 +13,7 @@ class IfaAntennaCase:
         self.frequencies = np.arange(2.1e9, 2.85e9, 0.05e9)
         # reference s11 calculated for np.arange(2.1e9, 2.85e9, 0.05e9) frequencies with cenos
         # calculation was done for approx 600 k DOF's (73 k elements with second order finite element space)
-        self.reference_s11 = [
+        self.reference_s11_2nd_order = [
             -2.986093,
             -3.962175,
             -5.265836,
@@ -29,6 +29,23 @@ class IfaAntennaCase:
             -8.204403,
             -7.330339,
             -6.599893,
+        ]
+        self.reference_s11 = [
+            -2.475688025,
+            -3.222148218,
+            -4.202493369,
+            -5.481446021,
+            -7.135602047,
+            -9.250379552,
+            -11.88238368,
+            -14.80542545,
+            -16.62158671,
+            -15.69395906,
+            -13.55988979,
+            -11.61008927,
+            -10.05254568,
+            -8.814651333,
+            -7.807999303,
         ]
         self.s_params = []
         self.domains = {"dielectric": {"type": "dielectric", "epsilon": 2.2}}
